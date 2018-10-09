@@ -1,0 +1,22 @@
+[package]
+name = "reactor_parser"
+version = "0.1.0"
+authors = ["Gravechapa <Gravechapa@protonmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+kuchiki = "0.7.2"
+regex = "1.0.5"
+lazy_static = "1.1.0"
+url = "1.7.1"
+percent-encoding = "1.0.1"
+
+[profile.dev]
+panic = "abort"
+debug = true
+opt-level = 0
+
+[profile.release]
+panic = "abort"
