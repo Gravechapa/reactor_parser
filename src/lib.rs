@@ -45,7 +45,7 @@ impl ElementType {
 #[repr(C)]
 pub struct NextPageUrl
 {
-    url: *const c_char,
+    url: *mut c_char,
     counter: i32,
     coincidence_counter: i32,
 }
@@ -58,6 +58,12 @@ struct RawElement
 }
 
 static UNIQ_STRING: &str = "/@split@۝┛";
+
+#[no_mangle]
+pub extern "C" fn get_page_content_cleanup(next_page_url: *mut NextPageUrl)
+{
+    unsafe{CString::from_raw((*next_page_url).url);}
+}
 
 #[no_mangle]
 pub extern "C" fn get_page_content(html: *const c_char,
@@ -170,8 +176,17 @@ pub extern "C" fn get_page_content(html: *const c_char,
                         }
                     unsafe{(*next_page_url).counter += 1}
                 }
-
         }
+
+    match document.select_first("a.next[href]")
+        {
+            Ok(next_page_node) => {
+                let next_page_link = next_page_node.attributes.borrow()
+                    .get("href").unwrap().to_string();
+                unsafe{(*next_page_url).url = CString::new(next_page_link).unwrap().into_raw();}
+            },
+            Err(_) => ()
+        };
     return check;
 }
 
