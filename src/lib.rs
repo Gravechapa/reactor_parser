@@ -25,7 +25,6 @@ enum ElementType
     IMG,
     DOCUMENT,
     URL,
-    TAGS,
 }
 
 impl ElementType {
@@ -37,7 +36,6 @@ impl ElementType {
                 ElementType::IMG => 1,
                 ElementType::DOCUMENT => 2,
                 ElementType::URL => 3,
-                ElementType::TAGS => 4,
             }
     }
 }
@@ -312,6 +310,10 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                     raw_elements.push(RawElement{element_type: ElementType::URL, data: link});
                     element.as_node().append(NodeRef::new_text(UNIQ_STRING));
                 }
+        }
+    for new_line in post_content.select("br, h3, h4, h5, h6").unwrap()
+        {
+            new_line.as_node().append(NodeRef::new_text("\n"));
         }
     return raw_elements;
 }
