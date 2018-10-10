@@ -301,7 +301,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
 
                     if domain.eq("www.coub.com") || domain.eq("coub.com")
                         {
-                            link = "https://www.coub.com/view{}".to_string() + &path[path.rfind("/").unwrap()..];
+                            link = "https://www.coub.com/view".to_string() + &path[path.rfind("/").unwrap()..];
                         }
                     else if domain.eq("www.youtube.com") || domain.eq("youtube.com")
                         {
