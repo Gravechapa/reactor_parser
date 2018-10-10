@@ -2,10 +2,12 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
+use std::boxed::Box;
 
 extern crate kuchiki;
 use kuchiki::traits::*;
 use kuchiki::NodeRef;
+use kuchiki::ParseOpts;
 
 #[macro_use] extern crate lazy_static;
 
@@ -73,7 +75,11 @@ pub extern "C" fn get_page_content(html: *const c_char,
 
     let html = unsafe{CStr::from_ptr(html).to_str().unwrap()};
 
-    let document = kuchiki::parse_html().one(html);
+    let mut options = ParseOpts::default();
+    options.on_parse_error = Some(Box::new(|err| println!("Parse issue: {}", err)));
+
+    let document = kuchiki::parse_html_with_options(options).one(html);
+
     for post in document.select(".postContainer").unwrap()
         {
             let post_link = match post.as_node().select_first("a.link[href]")
@@ -193,7 +199,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
     let mut raw_elements = Vec::<RawElement>::new();
 
     for trash in post_content.
-        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder").unwrap()
+        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder, script").unwrap()
         {
             trash.as_node().detach();
         }
