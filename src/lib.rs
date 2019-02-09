@@ -54,7 +54,7 @@ pub struct NextPageUrl
 struct RawElement
 {
     element_type: ElementType,
-    data: String ,
+    data: String,
 }
 
 static UNIQ_STRING: &str = "/@split@۝┛";
@@ -65,12 +65,20 @@ pub extern "C" fn get_page_content_cleanup(next_page_url: *mut NextPageUrl)
     unsafe{CString::from_raw((*next_page_url).url);}
 }
 
+extern "C" fn dummy(_:i64, _:*const c_char, _:*const c_char) -> bool
+{
+   true
+}
+
+
 #[no_mangle]
 pub extern "C" fn get_page_content(html: *const c_char,
-                                   new_reactor_url_callback: extern "C" fn(i64, *const c_char, *const c_char) -> bool,
-                                   new_reactor_data_callback: extern "C" fn(i64, i32, *const c_char, *const c_char) -> bool,
+                                   new_reactor_url_callback: Option<extern "C" fn(i64, *const c_char, *const c_char) -> bool>,
+                                   new_reactor_data_callback: Option<extern "C" fn(i64, i32, *const c_char, *const c_char) -> bool>,
                                    next_page_url: *mut NextPageUrl) -> bool
 {
+    let safe_new_reactor_data_callback = new_reactor_data_callback.unwrap();
+
     let mut check = true;
 
     let html = unsafe{CStr::from_ptr(html).to_str().unwrap()};
@@ -105,12 +113,17 @@ pub extern "C" fn get_page_content(html: *const c_char,
 
             let tags = get_post_tags(post.as_node());
 
-            let result = new_reactor_url_callback(post_id.clone(),
-                                     CString::new(post_url).unwrap().as_ref().as_ptr(),
-                                     CString::new(tags).unwrap().as_ref().as_ptr());
+            let result = new_reactor_url_callback.unwrap_or(dummy)
+                (post_id.clone(),
+                 CString::new(post_url).unwrap().as_ref().as_ptr(),
+                 CString::new(tags).unwrap().as_ref().as_ptr());
+
             if !result
                 {
-                    unsafe{(*next_page_url).coincidence_counter += 1};
+                    if !next_page_url.is_null()
+                        {
+                            unsafe {(*next_page_url).coincidence_counter += 1};
+                        }
                 }
             else
                 {
@@ -133,7 +146,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
                             let trimmed_text = splitted_text[0].trim();
                             if !trimmed_text.is_empty()
                                 {
-                                    new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
+                                    safe_new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
                                                               CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
                                                               ptr::null());
 
@@ -154,7 +167,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
                                         }
                                     else
                                         {
-                                            new_reactor_data_callback(*post_id,
+                                            safe_new_reactor_data_callback(*post_id,
                                                                       raw_elements[i].element_type.value(),
                                                                       CString::new(text.trim())
                                                                           .unwrap().as_ref().as_ptr(),
@@ -171,26 +184,32 @@ pub extern "C" fn get_page_content(html: *const c_char,
                             let trimmed_text = text.trim();
                             if !trimmed_text.is_empty()
                                 {
-                                    new_reactor_data_callback(*post_id,
+                                    safe_new_reactor_data_callback(*post_id,
                                                               ElementType::TEXT.value(),
                                                               CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
                                                               ptr::null());
                                 }
 
                         }
-                    unsafe{(*next_page_url).counter += 1}
+                    if !next_page_url.is_null()
+                        {
+                            unsafe {(*next_page_url).counter += 1}
+                        }
                 }
         }
 
-    match document.select_first("a.next[href]")
+    if !next_page_url.is_null()
         {
-            Ok(next_page_node) => {
-                let next_page_link = next_page_node.attributes.borrow()
-                    .get("href").unwrap().to_string();
-                unsafe{(*next_page_url).url = CString::new(next_page_link).unwrap().into_raw();}
-            },
-            Err(_) => ()
-        };
+            match document.select_first("a.next[href]")
+                {
+                    Ok(next_page_node) => {
+                        let next_page_link = next_page_node.attributes.borrow()
+                            .get("href").unwrap().to_string();
+                        unsafe {(*next_page_url).url = CString::new(next_page_link).unwrap().into_raw();}
+                    },
+                    Err(_) => ()
+                };
+        }
     return check;
 }
 
@@ -253,7 +272,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                                             {
                                                 Some(result) => result.borrow().to_string(),
                                                 None => {
-                                                    println!("Can't find text in url node{}", post_id);
+                                                    println!("Can't find text in url node: {}", post_id);
                                                     continue
                                                 }
                                             };
