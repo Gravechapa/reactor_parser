@@ -65,19 +65,13 @@ pub extern "C" fn get_page_content_cleanup(next_page_url: *mut NextPageUrl)
     unsafe{CString::from_raw((*next_page_url).url);}
 }
 
-extern "C" fn dummy(_:i64, _:*const c_char, _:*const c_char) -> bool
-{
-   true
-}
-
-
 #[no_mangle]
 pub extern "C" fn get_page_content(html: *const c_char,
                                    new_reactor_url_callback: Option<extern "C" fn(i64, *const c_char, *const c_char) -> bool>,
                                    new_reactor_data_callback: Option<extern "C" fn(i64, i32, *const c_char, *const c_char) -> bool>,
                                    next_page_url: *mut NextPageUrl) -> bool
 {
-    let safe_new_reactor_data_callback = new_reactor_data_callback.unwrap();
+    let safe_new_reactor_data_callback = new_reactor_data_callback.expect("Data callback is NULL");
 
     let mut check = true;
 
@@ -113,7 +107,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
 
             let tags = get_post_tags(post.as_node());
 
-            let result = new_reactor_url_callback.unwrap_or(dummy)
+            let result = new_reactor_url_callback.expect("Url callback is NULL")
                 (post_id.clone(),
                  CString::new(post_url).unwrap().as_ref().as_ptr(),
                  CString::new(tags).unwrap().as_ref().as_ptr());
