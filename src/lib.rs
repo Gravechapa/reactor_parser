@@ -211,12 +211,16 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
 {
     let mut raw_elements = Vec::<RawElement>::new();
 
-    for trash in post_content.
-        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder, script").unwrap()
+    let mut garbage:Vec<NodeRef> = Vec::new();
+    for node in post_content.
+        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder").unwrap()
         {
-            trash.as_node().detach();
+            garbage.push(node.as_node().to_owned());
         }
+    garbage.iter().for_each(|node|{node.detach();});
+    garbage.clear();
 
+    //post_content.serialize(&mut std::io::stdout());
     for element in post_content.
         select(".image > .prettyPhotoLink, .image > img, .image > span.video_gif_holder,\
          .image > iframe[src], a[href]:not([class])").unwrap()
@@ -278,8 +282,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                                             {
                                                 redirect_url = format!("{} \"{}\"", text , redirect_url);
                                             }
-
-                                        text_node.detach();
+                                        garbage.push(text_node);
                                         },
                                     None => {redirect_url = format!("\"{}\"", redirect_url);}
                                 };
@@ -330,6 +333,10 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                     element.as_node().append(NodeRef::new_text(UNIQ_STRING));
                 }
         }
+
+    garbage.iter().for_each(|node|{node.detach();});
+    garbage.clear();
+
     for new_line in post_content.select("br, h3, h4, h5, h6").unwrap()
         {
             new_line.as_node().append(NodeRef::new_text("\n"));
