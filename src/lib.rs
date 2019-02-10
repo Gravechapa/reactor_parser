@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::ffi::CString;
+use std::ffi::c_void;
 use std::os::raw::c_char;
 use std::ptr;
 use std::boxed::Box;
@@ -67,9 +68,10 @@ pub extern "C" fn get_page_content_cleanup(next_page_url: *mut NextPageUrl)
 
 #[no_mangle]
 pub extern "C" fn get_page_content(html: *const c_char,
-                                   new_reactor_url_callback: Option<extern "C" fn(i64, *const c_char, *const c_char) -> bool>,
-                                   new_reactor_data_callback: Option<extern "C" fn(i64, i32, *const c_char, *const c_char) -> bool>,
-                                   next_page_url: *mut NextPageUrl) -> bool
+                                   new_reactor_url_callback: Option<extern "C" fn(i64, *const c_char, *const c_char, *mut c_void) -> bool>,
+                                   new_reactor_data_callback: Option<extern "C" fn(i64, i32, *const c_char, *const c_char, *mut c_void) -> bool>,
+                                   next_page_url: *mut NextPageUrl,
+                                   user_data: *mut c_void) -> bool
 {
     let safe_new_reactor_data_callback = new_reactor_data_callback.expect("Data callback is NULL");
 
@@ -110,7 +112,8 @@ pub extern "C" fn get_page_content(html: *const c_char,
             let result = new_reactor_url_callback.expect("Url callback is NULL")
                 (post_id.clone(),
                  CString::new(post_url).unwrap().as_ref().as_ptr(),
-                 CString::new(tags).unwrap().as_ref().as_ptr());
+                 CString::new(tags).unwrap().as_ref().as_ptr(),
+                 user_data);
 
             if !result
                 {
@@ -142,7 +145,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
                                 {
                                     safe_new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
                                                               CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
-                                                              ptr::null());
+                                                              ptr::null(), user_data);
 
                                 }
                         }
@@ -166,7 +169,8 @@ pub extern "C" fn get_page_content(html: *const c_char,
                                                                       CString::new(text.trim())
                                                                           .unwrap().as_ref().as_ptr(),
                                                                       CString::new(raw_elements[i]
-                                                                          .data.to_string()).unwrap().as_ref().as_ptr());
+                                                                          .data.to_string()).unwrap().as_ref().as_ptr(),
+                                                                           user_data);
                                             text = String::new();
                                         }
                                 }
@@ -181,7 +185,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
                                     safe_new_reactor_data_callback(*post_id,
                                                               ElementType::TEXT.value(),
                                                               CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
-                                                              ptr::null());
+                                                              ptr::null(), user_data);
                                 }
 
                         }

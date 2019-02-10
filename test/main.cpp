@@ -2,16 +2,17 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <string>
 
-bool newReactorUrl(int64_t id, const char* url, const char* tags)
+bool newReactorUrl(int64_t id, const char* url, const char* tags, void*)
 {
     //std::cout << "UC " << id << " " << url << " " << tags << std::endl;
     return 1;
 }
 
-bool newReactorData(int64_t id, int32_t type, const char* text, const char* data)
+bool newReactorData(int64_t id, int32_t type, const char* text, const char* data, void* userData)
 {
-    std::cout << "DC " << id << " " << type << " " << text << " " << (data ? data : "") << std::endl;
+    std::cout << *(std::string*)userData << id << " " << type << " " << text << " " << (data ? data : "") << std::endl;
     return 1;
 }
 
@@ -25,7 +26,8 @@ int main()
     std::stringstream buffer;
     buffer << testFile.rdbuf();
     NextPageUrl nextPageUrl;
-    get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, &nextPageUrl);
+    std::string userData ("Data ");
+    get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, &nextPageUrl, &userData);
     std::cout << (nextPageUrl.url? nextPageUrl.url : "") << " " << nextPageUrl.counter << " " << nextPageUrl.coincidenceCounter << std::endl;
     get_page_content_cleanup(&nextPageUrl);
     
@@ -36,5 +38,5 @@ int main()
     }
     buffer.str("");
     buffer << testFile1.rdbuf();
-    get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, nullptr);
+    get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, nullptr, &userData);
 }
