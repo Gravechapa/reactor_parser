@@ -213,7 +213,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
 
     let mut garbage:Vec<NodeRef> = Vec::new();
     for node in post_content.
-        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder").unwrap()
+        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder, script").unwrap()
         {
             garbage.push(node.as_node().to_owned());
         }
