@@ -22,6 +22,7 @@ extern "C" bool get_page_content(const char* html,
                                  bool(*newReactorUrlCallback)(int64_t postId, const char* url, const char* tags, void* userData),
                                  bool(*newReactorDataCallback)(int64_t postId, int32_t type, const char* text, const char* data, void* userData),
                                  NextPageUrl *nextPageUrl,
-                                 void *userData
+                                 void *userData,
+                                 bool verbose
                                 );
 extern "C" void get_page_content_cleanup(NextPageUrl *nextPageUrl);

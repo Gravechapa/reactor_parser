@@ -71,7 +71,8 @@ pub extern "C" fn get_page_content(html: *const c_char,
                                    new_reactor_url_callback: Option<extern "C" fn(i64, *const c_char, *const c_char, *mut c_void) -> bool>,
                                    new_reactor_data_callback: Option<extern "C" fn(i64, i32, *const c_char, *const c_char, *mut c_void) -> bool>,
                                    next_page_url: *mut NextPageUrl,
-                                   user_data: *mut c_void) -> bool
+                                   user_data: *mut c_void,
+                                   verbose: bool) -> bool
 {
     let safe_new_reactor_data_callback = new_reactor_data_callback.expect("Data callback is NULL");
 
@@ -80,8 +81,10 @@ pub extern "C" fn get_page_content(html: *const c_char,
     let html = unsafe{CStr::from_ptr(html).to_str().unwrap()};
 
     let mut options = ParseOpts::default();
-    options.on_parse_error = Some(Box::new(|err| println!("Parse issue: {}", err)));
-
+    if verbose
+        {
+            options.on_parse_error = Some(Box::new(|err| println!("Parse issue: {}", err)));
+        }
     let document = kuchiki::parse_html_with_options(options).one(html);
 
     for post in document.select(".postContainer").unwrap()
