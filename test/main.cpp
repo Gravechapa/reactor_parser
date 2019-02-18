@@ -27,6 +27,11 @@ int main()
     buffer << testFile.rdbuf();
     NextPageUrl nextPageUrl;
     std::string userData ("Data ");
+    
+    get_page_content(nullptr, &newReactorUrl, &newReactorData, nullptr, nullptr, false);
+    get_page_content(buffer.str().c_str(), nullptr, &newReactorData, nullptr, nullptr, false);
+    get_page_content("", &newReactorUrl, nullptr, nullptr, nullptr, false);
+    
     get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, &nextPageUrl, &userData, false);
     std::cout << (nextPageUrl.url? nextPageUrl.url : "") << " " << nextPageUrl.counter << " " << nextPageUrl.coincidenceCounter << std::endl;
     get_page_content_cleanup(&nextPageUrl);

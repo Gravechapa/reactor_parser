@@ -14,9 +14,5 @@ url = "1.7.1"
 percent-encoding = "1.0.1"
 
 [profile.dev]
-panic = "abort"
 debug = true
 opt-level = 0
-
-[profile.release]
-panic = "abort"

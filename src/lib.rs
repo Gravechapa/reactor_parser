@@ -4,6 +4,8 @@ use std::ffi::c_void;
 use std::os::raw::c_char;
 use std::ptr;
 use std::boxed::Box;
+use std::panic;
+
 
 extern crate kuchiki;
 use kuchiki::traits::*;
@@ -74,144 +76,154 @@ pub extern "C" fn get_page_content(html: *const c_char,
                                    user_data: *mut c_void,
                                    verbose: bool) -> bool
 {
-    let safe_new_reactor_data_callback = new_reactor_data_callback.expect("Data callback is NULL");
+    panic::set_hook(Box::new(|err| {
+        println!("Reactor parser error: {}", err);
+    }));
 
-    let mut check = true;
+    let panic = panic::catch_unwind(|| {
+        let safe_new_reactor_data_callback = new_reactor_data_callback.expect("Data callback is NULL");
 
-    let html = unsafe{CStr::from_ptr(html).to_str().unwrap()};
+        let mut check = true;
 
-    let mut options = ParseOpts::default();
-    if verbose
-        {
-            options.on_parse_error = Some(Box::new(|err| println!("Parse issue: {}", err)));
-        }
-    let document = kuchiki::parse_html_with_options(options).one(html);
+        let html = unsafe {
+            if html.is_null() {panic!("Html is null");}
+            CStr::from_ptr(html).to_str().unwrap()};
 
-    for post in document.select(".postContainer").unwrap()
-        {
-            let post_link = match post.as_node().select_first("a.link[href]")
-                {
-                    Ok(result) => result,
-                    Err(_) => {
-                        println!("Can't find post link node");
-                        check = false;
-                        continue
-                    }
+        let mut options = ParseOpts::default();
+        if verbose
+            {
+                options.on_parse_error = Some(Box::new(|err| println!("Parse issue: {}", err)));
+            }
+        let document = kuchiki::parse_html_with_options(options).one(html);
 
-                };
-            let post_url = match post_link.attributes.borrow().get("href")
-                {
-                    Some(result) => result.to_string(),
-                    None =>  {
-                        println!("Can't find \"href\" attribute in post link node");
-                        check = false;
-                        continue
-                    }
-                };
-            let post_id = &post_url[post_url.rfind('/').unwrap() + 1..].parse::<i64>().unwrap();
-
-            let tags = get_post_tags(post.as_node());
-
-            let result = new_reactor_url_callback.expect("Url callback is NULL")
-                (post_id.clone(),
-                 CString::new(post_url).unwrap().as_ref().as_ptr(),
-                 CString::new(tags).unwrap().as_ref().as_ptr(),
-                 user_data);
-
-            if !result
-                {
-                    if !next_page_url.is_null()
-                        {
-                            unsafe {(*next_page_url).coincidence_counter += 1};
+        for post in document.select(".postContainer").unwrap()
+            {
+                let post_link = match post.as_node().select_first("a.link[href]")
+                    {
+                        Ok(result) => result,
+                        Err(_) => {
+                            println!("Can't find post link node");
+                            check = false;
+                            continue
                         }
-                }
-            else
-                {
-                    let post_content = match post.as_node().select_first(".post_content")
-                        {
-                            Ok(result) => result,
-                            Err(_) => {
-                                println!("Can't find post content node, post id: {}", post_id);
-                                check = false;
-                                continue
+
+                    };
+                let post_url = match post_link.attributes.borrow().get("href")
+                    {
+                        Some(result) => result.to_string(),
+                        None =>  {
+                            println!("Can't find \"href\" attribute in post link node");
+                            check = false;
+                            continue
+                        }
+                    };
+                let post_id = &post_url[post_url.rfind('/').unwrap() + 1..].parse::<i64>().unwrap();
+
+                let tags = get_post_tags(post.as_node());
+
+                let result = new_reactor_url_callback.expect("Url callback is NULL")
+                    (post_id.clone(),
+                     CString::new(post_url).unwrap().as_ref().as_ptr(),
+                     CString::new(tags).unwrap().as_ref().as_ptr(),
+                     user_data);
+
+                if !result
+                    {
+                        if !next_page_url.is_null()
+                            {
+                                unsafe {(*next_page_url).coincidence_counter += 1};
                             }
-                        };
-                    let raw_elements = get_post_content(post_content.as_node(),
-                                                                        &post_id,);
-                    let post_text = post_content.text_contents();
-                    let splitted_text: Vec<&str> = post_text.split(UNIQ_STRING).collect();
-
-                    if raw_elements.is_empty()
-                        {
-                            let trimmed_text = splitted_text[0].trim();
-                            if !trimmed_text.is_empty()
-                                {
-                                    safe_new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
-                                                              CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
-                                                              ptr::null(), user_data);
-
+                    }
+                else
+                    {
+                        let post_content = match post.as_node().select_first(".post_content")
+                            {
+                                Ok(result) => result,
+                                Err(_) => {
+                                    println!("Can't find post content node, post id: {}", post_id);
+                                    check = false;
+                                    continue
                                 }
-                        }
-                    else
-                        {
-                            assert!(raw_elements.len() <= splitted_text.len(),
-                                    "Something went wrong with element-text merging");
+                            };
+                        let raw_elements = get_post_content(post_content.as_node(),
+                                                                            &post_id,);
+                        let post_text = post_content.text_contents();
+                        let splitted_text: Vec<&str> = post_text.split(UNIQ_STRING).collect();
 
-                            let mut text = String::new();
-                            for i in 0..raw_elements.len()
-                                {
-                                    text.push_str(splitted_text[i]);
-                                    if raw_elements[i].element_type.value() == ElementType::TEXT.value()
-                                        {
-                                            text.push_str(&raw_elements[i].data);
-                                        }
-                                    else
-                                        {
-                                            safe_new_reactor_data_callback(*post_id,
-                                                                      raw_elements[i].element_type.value(),
-                                                                      CString::new(text.trim())
-                                                                          .unwrap().as_ref().as_ptr(),
-                                                                      CString::new(raw_elements[i]
-                                                                          .data.to_string()).unwrap().as_ref().as_ptr(),
-                                                                           user_data);
-                                            text = String::new();
-                                        }
-                                }
-                            for i in raw_elements.len()..splitted_text.len()
-                                {
-                                    text.push_str(splitted_text[i]);
-                                }
+                        if raw_elements.is_empty()
+                            {
+                                let trimmed_text = splitted_text[0].trim();
+                                if !trimmed_text.is_empty()
+                                    {
+                                        safe_new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
+                                                                  CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
+                                                                  ptr::null(), user_data);
 
-                            let trimmed_text = text.trim();
-                            if !trimmed_text.is_empty()
-                                {
-                                    safe_new_reactor_data_callback(*post_id,
-                                                              ElementType::TEXT.value(),
-                                                              CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
-                                                              ptr::null(), user_data);
-                                }
+                                    }
+                            }
+                        else
+                            {
+                                assert!(raw_elements.len() <= splitted_text.len(),
+                                        "Something went wrong with element-text merging");
 
-                        }
-                    if !next_page_url.is_null()
-                        {
-                            unsafe {(*next_page_url).counter += 1}
-                        }
-                }
-        }
+                                let mut text = String::new();
+                                for i in 0..raw_elements.len()
+                                    {
+                                        text.push_str(splitted_text[i]);
+                                        if raw_elements[i].element_type.value() == ElementType::TEXT.value()
+                                            {
+                                                text.push_str(&raw_elements[i].data);
+                                            }
+                                        else
+                                            {
+                                                safe_new_reactor_data_callback(*post_id,
+                                                                          raw_elements[i].element_type.value(),
+                                                                          CString::new(text.trim())
+                                                                              .unwrap().as_ref().as_ptr(),
+                                                                          CString::new(raw_elements[i]
+                                                                              .data.to_string()).unwrap().as_ref().as_ptr(),
+                                                                               user_data);
+                                                text = String::new();
+                                            }
+                                    }
+                                for i in raw_elements.len()..splitted_text.len()
+                                    {
+                                        text.push_str(splitted_text[i]);
+                                    }
 
-    if !next_page_url.is_null()
+                                let trimmed_text = text.trim();
+                                if !trimmed_text.is_empty()
+                                    {
+                                        safe_new_reactor_data_callback(*post_id,
+                                                                  ElementType::TEXT.value(),
+                                                                  CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
+                                                                  ptr::null(), user_data);
+                                    }
+
+                            }
+                        if !next_page_url.is_null()
+                            {
+                                unsafe {(*next_page_url).counter += 1}
+                            }
+                    }
+            }
+
+        if !next_page_url.is_null()
+            {
+                let next_page_node = document.select_first("a.next[href]")
+                    .expect("Can't find next page link");
+                let next_page_link = next_page_node.attributes.borrow()
+                    .get("href").unwrap().to_string();
+                unsafe {(*next_page_url).url = CString::new(next_page_link).unwrap().into_raw();}
+            }
+        return check;
+    });
+
+    match panic
         {
-            match document.select_first("a.next[href]")
-                {
-                    Ok(next_page_node) => {
-                        let next_page_link = next_page_node.attributes.borrow()
-                            .get("href").unwrap().to_string();
-                        unsafe {(*next_page_url).url = CString::new(next_page_link).unwrap().into_raw();}
-                    },
-                    Err(_) => ()
-                };
+            Ok(check) => {return check;}
+            Err(_) => {return false;}
         }
-    return check;
 }
 
 fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
