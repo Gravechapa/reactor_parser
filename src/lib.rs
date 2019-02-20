@@ -270,7 +270,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                             lazy_static!
                             {
                                 static ref REACTOR_REDIRECT_CHECKER: Regex =
-                                 Regex::new("^https?://([-a-zA-Z0-9%_]*\\.reactor\\.cc|joyreactor\\.cc|reactor\\.cc)/redirect\\?url=.*").unwrap();
+                                 Regex::new("^https?://(([-a-zA-Z0-9%_]+\\.)?reactor|joyreactor)\\.cc/redirect\\?url=.*").unwrap();
                                 static ref URL_CHECKER: Regex =
                                  Regex::new("^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]").unwrap();
                             }
