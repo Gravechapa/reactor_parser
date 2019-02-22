@@ -248,7 +248,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                 {
                     if element.attributes.borrow().get("class") == Some("prettyPhotoLink")
                         {
-                            let link = element.attributes.borrow().get("href").unwrap().to_string();
+                            let link = url_unescape(element.attributes.borrow().get("href").unwrap());
                             lazy_static!
                             {
                                 static ref GIF_CHECKER: Regex = Regex::new("([^\\s]+(\\.(?i)(gif))$)").unwrap();
@@ -275,11 +275,10 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                                  Regex::new("^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]").unwrap();
                             }
 
-                            let mut redirect_url = element.attributes.borrow().get("href").unwrap().to_string();
+                            let mut redirect_url = url_unescape(element.attributes.borrow().get("href").unwrap());
                             if REACTOR_REDIRECT_CHECKER.is_match(&redirect_url)
                                 {
-                                    redirect_url = percent_decode(redirect_url[redirect_url.find("url=").unwrap() + 4..].as_ref())
-                                        .decode_utf8().unwrap().to_string()
+                                    redirect_url = redirect_url[redirect_url.find("url=").unwrap() + 4..].to_string();
                                 }
 
                             match element.as_node().first_child()
@@ -312,7 +311,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                 }
             if element.name.local.eq("img")
                 {
-                    let link = element.attributes.borrow().get("src").unwrap().to_string();
+                    let link = url_unescape(element.attributes.borrow().get("src").unwrap());
                     raw_elements.push(RawElement{element_type: ElementType::IMG, data: link});
                     element.as_node().append(NodeRef::new_text(UNIQ_STRING));
                 }
@@ -327,7 +326,7 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                     gif.as_node().append(NodeRef::new_text(UNIQ_STRING));
 
                     raw_elements.push(RawElement{element_type: ElementType::DOCUMENT,
-                        data: gif.attributes.borrow().get("href").unwrap().to_string()});
+                        data: url_unescape(gif.attributes.borrow().get("href").unwrap())});
                 }
             if element.name.local.eq("iframe") && element.attributes.borrow().get("src").is_some()
                 {
@@ -361,6 +360,11 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
             new_line.as_node().append(NodeRef::new_text("\n"));
         }
     return raw_elements;
+}
+
+fn url_unescape(url: &str) -> String
+{
+    percent_decode(url.as_ref()).decode_utf8().unwrap().to_string()
 }
 
 fn get_post_tags(post: &NodeRef) -> String
