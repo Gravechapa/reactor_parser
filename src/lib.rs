@@ -97,9 +97,14 @@ pub extern "C" fn get_page_content(html: *const c_char,
         }
         let document = kuchiki::parse_html_with_options(options).one(html);
 
+        let mut posts:Vec<NodeRef> = Vec::new();
         for post in document.select(".postContainer").unwrap()
         {
-            let post_link = match post.as_node().select_first("a.link[href]")
+            posts.push(post.as_node().to_owned());
+        }
+        for post in posts
+        {
+            let post_link = match post.select_first("a.link[href]")
             {
                 Ok(result) => result,
                 Err(_) => {
@@ -120,7 +125,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
             };
             let post_id = &post_url[post_url.rfind('/').unwrap() + 1..].parse::<i64>().unwrap();
 
-            let tags = get_post_tags(post.as_node());
+            let tags = get_post_tags(&post);
 
             let result = new_reactor_url_callback.expect("Url callback is NULL")
                 (post_id.clone(),
@@ -137,7 +142,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
             }
             else
             {
-                let post_content = match post.as_node().select_first(".post_content")
+                let post_content = match post.select_first(".post_content")
                 {
                     Ok(result) => result,
                     Err(_) => {
