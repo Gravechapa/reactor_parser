@@ -70,7 +70,8 @@ pub extern "C" fn get_page_content_cleanup(next_page_url: *mut NextPageUrl)
 }
 
 #[no_mangle]
-pub extern "C" fn get_page_content(html: *const c_char,
+pub extern "C" fn get_page_content(base_url: *const c_char,
+                                   html: *const c_char,
                                    new_reactor_url_callback: Option<extern "C" fn(i64, *const c_char, *const c_char, *mut c_void) -> bool>,
                                    new_reactor_data_callback: Option<extern "C" fn(i64, i32, *const c_char, *const c_char, *mut c_void) -> bool>,
                                    next_page_url: *mut NextPageUrl,
@@ -85,6 +86,9 @@ pub extern "C" fn get_page_content(html: *const c_char,
         let safe_new_reactor_data_callback = new_reactor_data_callback.expect("Data callback is NULL");
 
         let mut check = true;
+        let base_url = unsafe {
+            if base_url.is_null() {panic!("BaseUrl is null");}
+            Url::parse(CStr::from_ptr(base_url).to_str().unwrap()).unwrap()};
 
         let html = unsafe {
             if html.is_null() {panic!("Html is null");}
@@ -125,7 +129,9 @@ pub extern "C" fn get_page_content(html: *const c_char,
             };
             let post_id = &post_url[post_url.rfind('/').unwrap() + 1..].parse::<i64>().unwrap();
 
-            let tags = get_post_tags(&post);
+            let post_url = base_url.join(&post_url).unwrap().to_string();
+
+            let tags = get_post_tags(&base_url, &post);
 
             let result = new_reactor_url_callback.expect("Url callback is NULL")
                 (post_id.clone(),
@@ -151,7 +157,8 @@ pub extern "C" fn get_page_content(html: *const c_char,
                         continue
                     }
                 };
-                let raw_elements = get_post_content(post_content.as_node(),
+                let raw_elements = get_post_content(&base_url,
+                                                                    post_content.as_node(),
                                                                     &post_id,);
                 let post_text = post_content.text_contents();
                 let splitted_text: Vec<&str> = post_text.split(UNIQ_STRING).collect();
@@ -218,8 +225,8 @@ pub extern "C" fn get_page_content(html: *const c_char,
         {
             let next_page_node = document.select_first("a.next[href]")
                 .expect("Can't find next page link");
-            let next_page_link = next_page_node.attributes.borrow()
-                .get("href").unwrap().to_string();
+            let next_page_link = base_url.join(next_page_node.attributes.borrow()
+                .get("href").unwrap()).unwrap().to_string();
             unsafe {(*next_page_url).url = CString::new(next_page_link).unwrap().into_raw();}
         }
         return check;
@@ -232,7 +239,7 @@ pub extern "C" fn get_page_content(html: *const c_char,
     }
 }
 
-fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
+fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
 {
     let mut raw_elements = Vec::<RawElement>::new();
 
@@ -254,7 +261,9 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
         {
             if element.attributes.borrow().get("class") == Some("prettyPhotoLink")
             {
-                let link = url_unescape(element.attributes.borrow().get("href").unwrap());
+                let link = url_unescape(base_url.join(
+                    element.attributes.borrow().get("href").unwrap())
+                    .unwrap().as_str());
                 lazy_static!
                 {
                     static ref GIF_CHECKER: Regex = Regex::new("([^\\s]+(\\.(?i)(gif))$)").unwrap();
@@ -281,7 +290,9 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
                      Regex::new("^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]").unwrap();
                 }
 
-                let mut redirect_url = url_unescape(element.attributes.borrow().get("href").unwrap());
+                let mut redirect_url = url_unescape(base_url.join(
+                    element.attributes.borrow().get("href").unwrap())
+                    .unwrap().as_str());
                 if REACTOR_REDIRECT_CHECKER.is_match(&redirect_url)
                 {
                     redirect_url = redirect_url[redirect_url.find("url=").unwrap() + 4..].to_string();
@@ -317,7 +328,9 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
         }
         if element.name.local.eq("img")
         {
-            let link = url_unescape(element.attributes.borrow().get("src").unwrap());
+            let link = url_unescape(base_url.join(
+                element.attributes.borrow().get("src").unwrap())
+                .unwrap().as_str());
             raw_elements.push(RawElement{element_type: ElementType::IMG, data: link});
             element.as_node().append(NodeRef::new_text(UNIQ_STRING));
         }
@@ -332,7 +345,9 @@ fn get_post_content(post_content: &NodeRef, post_id: &i64) -> Vec<RawElement>
             gif.as_node().append(NodeRef::new_text(UNIQ_STRING));
 
             raw_elements.push(RawElement{element_type: ElementType::DOCUMENT,
-                data: url_unescape(gif.attributes.borrow().get("href").unwrap())});
+                data: url_unescape(base_url.join(
+                    gif.attributes.borrow().get("href").unwrap())
+                                       .unwrap().as_str())});
         }
         if element.name.local.eq("iframe") && element.attributes.borrow().get("src").is_some()
         {
@@ -373,7 +388,7 @@ fn url_unescape(url: &str) -> String
     percent_decode(url.as_ref()).decode_utf8().unwrap().to_string()
 }
 
-fn get_post_tags(post: &NodeRef) -> String
+fn get_post_tags(base_url: &Url, post: &NodeRef) -> String
 {
     let mut tags = String::new();
     let tags_list = match post.select_first(".taglist")
@@ -384,7 +399,9 @@ fn get_post_tags(post: &NodeRef) -> String
     for tags_link in tags_list.as_node().select("a[href]").unwrap()
     {
         tags += &format!("[{}]({}) ", &tags_link.as_node().text_contents(),
-                       &tags_link.attributes.borrow().get("href").unwrap());
+                         base_url.join(
+                             &tags_link.attributes.borrow().get("href").unwrap())
+                             .unwrap().as_str());
     }
     return tags;
 }

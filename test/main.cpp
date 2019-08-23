@@ -28,11 +28,11 @@ int main()
     NextPageUrl nextPageUrl;
     std::string userData ("Data ");
     
-    get_page_content(nullptr, &newReactorUrl, &newReactorData, nullptr, nullptr, false);
-    get_page_content(buffer.str().c_str(), nullptr, &newReactorData, nullptr, nullptr, false);
-    get_page_content("", &newReactorUrl, nullptr, nullptr, nullptr, false);
+    get_page_content(nullptr, nullptr, &newReactorUrl, &newReactorData, nullptr, nullptr, false);
+    get_page_content("http://old.reactor.cc/all", buffer.str().c_str(), nullptr, &newReactorData, nullptr, nullptr, false);
+    get_page_content("", "", &newReactorUrl, nullptr, nullptr, nullptr, false);
     
-    get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, &nextPageUrl, &userData, false);
+    get_page_content("http://reactor.cc", buffer.str().c_str(), &newReactorUrl, &newReactorData, &nextPageUrl, &userData, false);
     std::cout << (nextPageUrl.url? nextPageUrl.url : "") << " " << nextPageUrl.counter << " " << nextPageUrl.coincidenceCounter << std::endl;
     get_page_content_cleanup(&nextPageUrl);
     
@@ -43,5 +43,5 @@ int main()
     }
     buffer.str("");
     buffer << testFile1.rdbuf();
-    get_page_content(buffer.str().c_str(), &newReactorUrl, &newReactorData, nullptr, &userData, true);
+    get_page_content("http://old.reactor.cc/post/0", buffer.str().c_str(), &newReactorUrl, &newReactorData, nullptr, &userData, true);
 }

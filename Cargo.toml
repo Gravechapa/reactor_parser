@@ -7,7 +7,7 @@ authors = ["Gravechapa <Gravechapa@protonmail.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-kuchiki = "0.7.2"
+kuchiki = "0.7.3"
 regex = "1.0.5"
 lazy_static = "1.1.0"
 url = "1.7.1"
