@@ -16,8 +16,14 @@ bool newReactorData(int64_t id, int32_t type, const char* text, const char* data
     return 1;
 }
 
+void logCallback(const char* text)
+{
+    std::cout << "LOG: " << text;
+}
+
 int main()
 {
+    set_log_callback(logCallback);
     std::ifstream testFile("test.html");
     if(!testFile.is_open())
     {

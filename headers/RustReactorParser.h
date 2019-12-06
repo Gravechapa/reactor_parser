@@ -27,3 +27,4 @@ extern "C" bool get_page_content(const char* baseUrl, //address of the page
                                  bool verbose
                                 );
 extern "C" void get_page_content_cleanup(NextPageUrl *nextPageUrl);
+extern "C" void set_log_callback(void(*logCallback)(const char* text));

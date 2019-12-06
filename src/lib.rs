@@ -5,6 +5,7 @@ use std::os::raw::c_char;
 use std::ptr;
 use std::boxed::Box;
 use std::panic;
+use std::fmt;
 
 
 extern crate kuchiki;
@@ -22,6 +23,37 @@ use url::Url;
 
 extern crate percent_encoding;
 use percent_encoding::percent_decode;
+use std::ptr::null;
+
+static mut LOG_CALLBACK: Option<extern "C" fn(*const c_char)> = None;
+
+use std::io::{self, Write};
+macro_rules! print
+{
+    ($($arg:tt)*) => ($crate::_print(format_args!($($arg)*)));
+}
+
+fn _print(args: fmt::Arguments)
+{
+    unsafe
+        {
+            if LOG_CALLBACK.is_none()
+            {
+                io::stdout().lock().write_all(format!("{}", args).as_ref()).unwrap();
+            }
+            else
+            {
+                LOG_CALLBACK.unwrap()(CString::new(format!("{}", args)).unwrap().as_ref().as_ptr())
+            }
+        }
+
+}
+
+macro_rules! println
+{
+    ($fmt:expr) => (print!(concat!($fmt, "\n")));
+    ($fmt:expr, $($arg:tt)*) => (print!(concat!($fmt, "\n"), $($arg)*));
+}
 
 #[derive(Debug)]
 enum ElementType
@@ -404,4 +436,10 @@ fn get_post_tags(base_url: &Url, post: &NodeRef) -> String
                              .unwrap().as_str());
     }
     return tags;
+}
+
+#[no_mangle]
+pub extern "C" fn set_log_callback(log_callback_: Option<extern "C" fn(*const c_char)>)
+{
+    unsafe{LOG_CALLBACK = log_callback_};
 }
