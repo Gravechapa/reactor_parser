@@ -99,7 +99,11 @@ static UNIQ_STRING: &str = "/@split@۝┛";
 #[no_mangle]
 pub extern "C" fn get_page_content_cleanup(next_page_url: *mut NextPageUrl)
 {
-    unsafe{CString::from_raw((*next_page_url).url);}
+    unsafe
+    {
+        CString::from_raw((*next_page_url).url);
+        (*next_page_url).url = ptr::null_mut();
+    }
 }
 
 #[no_mangle]
