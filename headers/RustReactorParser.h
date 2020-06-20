@@ -15,6 +15,7 @@ struct NextPageUrl
 //      1 - image
 //      2 - document
 //      3 - url
+//      4 - censorship
 //text: just text
 //data: not text :) (may be nullptr)
 

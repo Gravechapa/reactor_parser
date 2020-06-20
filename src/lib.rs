@@ -23,7 +23,6 @@ use url::Url;
 
 extern crate percent_encoding;
 use percent_encoding::percent_decode;
-use std::ptr::null;
 
 static mut LOG_CALLBACK: Option<extern "C" fn(*const c_char)> = None;
 
@@ -62,6 +61,7 @@ enum ElementType
     IMG,
     DOCUMENT,
     URL,
+    CENSORSHIP,
 }
 
 impl ElementType
@@ -74,6 +74,7 @@ impl ElementType
             ElementType::IMG => 1,
             ElementType::DOCUMENT => 2,
             ElementType::URL => 3,
+            ElementType::CENSORSHIP => 4,
         }
     }
 }
@@ -180,71 +181,74 @@ pub extern "C" fn get_page_content(base_url: *const c_char,
             }
             else
             {
-                let post_content = match post.select_first(".post_content")
+                if post.select_first("img[alt=Censorship]").is_ok()
                 {
-                    Ok(result) => result,
-                    Err(_) => {
-                        println!("Can't find post content node, post id: {}", post_id);
-                        check = false;
-                        continue
-                    }
-                };
-                let raw_elements = get_post_content(&base_url,
-                                                                    post_content.as_node(),
-                                                                    &post_id,);
-                let post_text = post_content.text_contents();
-                let splitted_text: Vec<&str> = post_text.split(UNIQ_STRING).collect();
-
-                if raw_elements.is_empty()
-                {
-                    let trimmed_text = splitted_text[0].trim();
-                    if !trimmed_text.is_empty()
-                    {
-                        safe_new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
-                                                  CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
-                                                  ptr::null(), user_data);
-
-                    }
+                    safe_new_reactor_data_callback(*post_id, ElementType::CENSORSHIP.value(),
+                                                   CString::new("🚫Censorship🚫").unwrap().as_ref().as_ptr(),
+                                                   ptr::null(), user_data);
                 }
                 else
                 {
-                    assert!(raw_elements.len() <= splitted_text.len(),
-                            "Something went wrong with element-text merging");
-
-                    let mut text = String::new();
-                    for i in 0..raw_elements.len()
-                    {
-                        text.push_str(splitted_text[i]);
-                        if raw_elements[i].element_type.value() == ElementType::TEXT.value()
+                    let post_content = match post.select_first(".post_content")
                         {
-                            text.push_str(&raw_elements[i].data);
+                            Ok(result) => result,
+                            Err(_) => {
+                                println!("Can't find post content node, post id: {}", post_id);
+                                check = false;
+                                continue
+                            }
+                        };
+                    let raw_elements = get_post_content(&base_url,
+                                                        post_content.as_node(),
+                                                        &post_id, );
+                    let post_text = post_content.text_contents();
+                    let splitted_text: Vec<&str> = post_text.split(UNIQ_STRING).collect();
+
+                    if raw_elements.is_empty()
+                    {
+                        let trimmed_text = splitted_text[0].trim();
+                        if !trimmed_text.is_empty()
+                        {
+                            safe_new_reactor_data_callback(*post_id, ElementType::TEXT.value(),
+                                                           CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
+                                                           ptr::null(), user_data);
                         }
-                        else
+                    } else {
+                        assert!(raw_elements.len() <= splitted_text.len(),
+                                "Something went wrong with element-text merging");
+
+                        let mut text = String::new();
+                        for i in 0..raw_elements.len()
+                            {
+                                text.push_str(splitted_text[i]);
+                                if raw_elements[i].element_type.value() == ElementType::TEXT.value()
+                                {
+                                    text.push_str(&raw_elements[i].data);
+                                } else {
+                                    safe_new_reactor_data_callback(*post_id,
+                                                                   raw_elements[i].element_type.value(),
+                                                                   CString::new(text.trim())
+                                                                       .unwrap().as_ref().as_ptr(),
+                                                                   CString::new(raw_elements[i]
+                                                                       .data.to_string()).unwrap().as_ref().as_ptr(),
+                                                                   user_data);
+                                    text = String::new();
+                                }
+                            }
+                        for i in raw_elements.len()..splitted_text.len()
+                            {
+                                text.push_str(splitted_text[i]);
+                            }
+
+                        let trimmed_text = text.trim();
+                        if !trimmed_text.is_empty()
                         {
                             safe_new_reactor_data_callback(*post_id,
-                                                      raw_elements[i].element_type.value(),
-                                                      CString::new(text.trim())
-                                                          .unwrap().as_ref().as_ptr(),
-                                                      CString::new(raw_elements[i]
-                                                          .data.to_string()).unwrap().as_ref().as_ptr(),
-                                                           user_data);
-                            text = String::new();
+                                                           ElementType::TEXT.value(),
+                                                           CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
+                                                           ptr::null(), user_data);
                         }
                     }
-                    for i in raw_elements.len()..splitted_text.len()
-                    {
-                        text.push_str(splitted_text[i]);
-                    }
-
-                    let trimmed_text = text.trim();
-                    if !trimmed_text.is_empty()
-                    {
-                        safe_new_reactor_data_callback(*post_id,
-                                                  ElementType::TEXT.value(),
-                                                  CString::new(trimmed_text).unwrap().as_ref().as_ptr(),
-                                                  ptr::null(), user_data);
-                    }
-
                 }
                 if !next_page_url.is_null()
                 {
