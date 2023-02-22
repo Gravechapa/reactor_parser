@@ -185,10 +185,10 @@ pub extern "C" fn get_page_content(base_url: *const c_char,
             }
             else
             {
-                if post.select_first("img[alt=Censorship]").is_ok()
+                if post.select_first("img[alt=Censorship], img[alt=Copywrite]").is_ok()
                 {
                     safe_new_reactor_data_callback(*post_id, ElementType::CENSORSHIP.value(),
-                                                   CString::new("🚫Censorship🚫").unwrap().as_ref().as_ptr(),
+                                                   CString::new("🚫Censorship/Copywrite🚫").unwrap().as_ref().as_ptr(),
                                                    ptr::null(), user_data);
                 }
                 else
@@ -416,8 +416,12 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
     garbage.iter().for_each(|node|{node.detach();});
     garbage.clear();
 
-    for new_line in post_content.select("br, h3, h4, h5, h6").unwrap()
+    for new_line in post_content.select("br, p, h3, h4, h5, h6").unwrap()
     {
+        if new_line.name.local.eq("p")
+        {
+            new_line.as_node().prepend(NodeRef::new_text("\n"));
+        }
         new_line.as_node().append(NodeRef::new_text("\n"));
     }
     return raw_elements;
