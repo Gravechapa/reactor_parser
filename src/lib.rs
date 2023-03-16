@@ -285,7 +285,8 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
 
     let mut garbage:Vec<NodeRef> = Vec::new();
     for node in post_content.
-        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder, script").unwrap()
+        select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder, script,\
+         a.prettyPhotoLink img, video img").unwrap()
     {
         garbage.push(node.as_node().to_owned());
     }
@@ -294,8 +295,8 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
 
     //post_content.serialize(&mut std::io::stdout());
     for element in post_content.
-        select(".image > .prettyPhotoLink, .image > img, .image > span.video_gif_holder,\
-         .image > iframe[src], a[href]:not([class])").unwrap()
+        select("div.image a.prettyPhotoLink, div.image img, div.image span.video_gif_holder,\
+         div.image iframe[src], a[href]:not([class])").unwrap()
     {
         if element.name.local.eq("a")
         {
