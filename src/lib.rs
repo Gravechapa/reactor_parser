@@ -286,7 +286,7 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
     let mut garbage:Vec<NodeRef> = Vec::new();
     for node in post_content.
         select("a.more_link, span.more_content, div.mainheader, div.blog_results, div.post_poll_holder, script,\
-         a.prettyPhotoLink img, video img").unwrap()
+         a.prettyPhotoLink img, video img, span.video_gif_holder img").unwrap()
     {
         garbage.push(node.as_node().to_owned());
     }
