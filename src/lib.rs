@@ -397,13 +397,11 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
                 Ok(result) => result,
                 Err(_) => continue
             };
-            video.as_node().first_child().unwrap().detach();
-            video.as_node().append(NodeRef::new_text(UNIQ_STRING));
-
             raw_elements.push(RawElement{element_type: ElementType::DOCUMENT,
                 data: url_unescape(base_url.join(
                     video.attributes.borrow().get("src").unwrap())
                                        .unwrap().as_str())});
+            element.as_node().append(NodeRef::new_text(UNIQ_STRING));
         }
         if element.name.local.eq("iframe") && element.attributes.borrow().get("src").is_some()
         {
