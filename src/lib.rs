@@ -295,7 +295,7 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
 
     //post_content.serialize(&mut std::io::stdout());
     for element in post_content.
-        select("div.image a.prettyPhotoLink, div.image img, div.image span.video_gif_holder,\
+        select("div.image a.prettyPhotoLink, div.image img, div.image span.video_gif_holder, div.image span.video_holder video,\
          div.image iframe[src], a[href]:not([class])").unwrap()
     {
         if element.name.local.eq("a")
@@ -388,6 +388,21 @@ fn get_post_content(base_url: &Url, post_content: &NodeRef, post_id: &i64) -> Ve
             raw_elements.push(RawElement{element_type: ElementType::DOCUMENT,
                 data: url_unescape(base_url.join(
                     gif.attributes.borrow().get("href").unwrap())
+                                       .unwrap().as_str())});
+        }
+        if element.name.local.eq("video")
+        {
+            let video = match element.as_node().select_first("source[type=\"video/mp4\"]")
+            {
+                Ok(result) => result,
+                Err(_) => continue
+            };
+            video.as_node().first_child().unwrap().detach();
+            video.as_node().append(NodeRef::new_text(UNIQ_STRING));
+
+            raw_elements.push(RawElement{element_type: ElementType::DOCUMENT,
+                data: url_unescape(base_url.join(
+                    video.attributes.borrow().get("src").unwrap())
                                        .unwrap().as_str())});
         }
         if element.name.local.eq("iframe") && element.attributes.borrow().get("src").is_some()
